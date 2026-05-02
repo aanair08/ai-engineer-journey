@@ -22,5 +22,5 @@ def ask_ai(prompt):
     }
 
     response = requests.post(url, headers=headers, json=data)
-    print(response.json)
+
     return response.json()["choices"][0]["message"]["content"]
