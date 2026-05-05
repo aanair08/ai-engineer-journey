@@ -6,7 +6,7 @@ load_dotenv()
 
 API_KEY = os.getenv("GROQ_API_KEY")
 
-def ask_ai(prompt):
+def ask_ai(messages):
     url = "https://api.groq.com/openai/v1/chat/completions"
 
     headers = {
@@ -16,10 +16,9 @@ def ask_ai(prompt):
 
     data = {
         "model": "llama-3.1-8b-instant",
-        "messages": [
-            {"role": "user", "content": prompt}
-        ]
+        "messages": messages
     }
+
 
     response = requests.post(url, headers=headers, json=data)
 
