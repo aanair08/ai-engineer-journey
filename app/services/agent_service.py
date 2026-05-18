@@ -1,6 +1,8 @@
 from app.services.ai_service import ask_ai
 import json
 from app.services.tools import get_weather, calculate
+import json
+from app.schemas.tools_schema import ToolDecision
 
 TOOLS = [
     {
@@ -42,37 +44,76 @@ def run_agent(question):
     You are an AI agent.
 
     Available tools:
-    {TOOLS}
+    - get_weather
+    - calculate
+
+    Respond ONLY with valid JSON.
+
+    Valid format:
+    {{
+    "tool": "get_weather",
+    "arguments": {{
+        "city": "Kerala"
+    }}
+    }}
+
+    OR
+
+    {{
+    "tool": null,
+    "arguments": {{}}
+    }}
 
     User question:
     {question}
-
-    If a tool is needed, respond ONLY in JSON format like:
-
-    {{
-    "tool": "tool_name",
-    "arguments": {{
-        "param": "value"
-    }}
-    }}
-
-    If no tool needed:
-    {{
-    "tool": null
-    }}
-    
     """
     decision = ask_ai(prompt)
-    decision_data = json.loads(decision)
 
-    tool_name = decision_data["tool"]
+    print("\n=== RAW LLM DECISION ===")
+    print(decision)
 
-    if tool_name:
-        arguments = decision_data["arguments"]
+    # -----------------------------
+    # Step 2: Parse + Validate JSON
+    # -----------------------------
 
+    try:
+        parsed_json = json.loads(decision)
+
+        decision_data = ToolDecision(**parsed_json)
+
+    except Exception as e:
+        return f"Invalid AI response: {str(e)}"
+
+
+    tool_name = decision_data.tool
+    arguments = decision_data.arguments
+
+    print("\n=== VALIDATED DECISION ===")
+    print("Tool:", tool_name)
+    print("Arguments:", arguments)
+
+
+    if tool_name is None:
+        return ask_ai(question)
+
+
+
+    if tool_name not in TOOL_MAP:
+        return f"Unknown tool: {tool_name}"
+
+
+    try:
         tool_function = TOOL_MAP[tool_name]
 
-        result = tool_function(**arguments)
+        tool_result = tool_function(**arguments)
+
+    except Exception as e:
+        return f"Tool execution failed: {str(e)}"
+
+    print("\n=== TOOL RESULT ===")
+    print(tool_result)
+
+
     final_prompt = f"""
     User question:
     {question}
@@ -81,10 +122,11 @@ def run_agent(question):
     {tool_name}
 
     Tool result:
-    {result}
+    {tool_result}
 
-    Generate final helpful response.
+    Generate a helpful final response for the user.
     """
+
     final_answer = ask_ai(final_prompt)
 
     return final_answer
